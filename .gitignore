@@ -1,0 +1,7 @@
+perf.data*
+capra
+wlr-layer-shell-unstable-v1-protocol.*
+xdg-shell-protocol.*
+pointer-constraints-unstable-v1-protocol.*
+config.h
+
