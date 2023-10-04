@@ -339,7 +339,7 @@ static struct {
 	struct wlr_seat *seat;
 	struct wl_listener on_request_set_cursor;
 	struct wl_listener on_request_set_selection;
-
+    
 	struct wlr_xdg_shell *xdg_shell;
 	struct wl_listener on_new_xdg_surface;
 	
@@ -531,7 +531,9 @@ static void toggle_fullscreen(Input_Arg arg) {
 	Client *client = server.focused_client;
 	if (!client) return;
 	Output *output = client->output;
-	configure_client(client, 0, 0, output->wlr->width, output->wlr->height, 
+    int width, height;
+    wlr_output_effective_resolution(output->wlr, &width, &height);
+	configure_client(client, 0, 0, width, height, 
 					 client->config.flags ^ CLIENT_CONFIG_FULLSCREEN);
 	if (client->config.flags & CLIENT_CONFIG_FULLSCREEN) {
 		move_client_to_layer(client, LAYER_VIEW_FULLSCREEN);
@@ -649,7 +651,7 @@ static void render_client_list(struct wl_list *list, const Output *output, doubl
 	Client *client;
 	float matrix[9];
 	memcpy(matrix, output->wlr->transform_matrix, sizeof(matrix));
-
+    
 	wl_list_for_each_reverse(client, list, link) {
 		render_client(client, output, matrix, x_offset, y_offset, when);
 	}
@@ -698,7 +700,7 @@ static void *status_update_thread(void *dont_care) {
 			status_bar.block_lengths[i] = length;
 		}
 		pthread_mutex_unlock(&status_bar.lock);
-	
+        
 		printf("Nunights\n");
 		sleep(CONFIG.status_update_interval_seconds);
 		printf("Wake up\n");
@@ -718,11 +720,11 @@ static void render_status_bar(Output *output) {
 	//wlr_matrix_identity(matrix);
 	memcpy(matrix, output->wlr->transform_matrix, sizeof(matrix));
 	wlr_output_layout_get_box(server.output_layout, output->wlr, &output_box);
-
+    
 	if (!strcmp(output->wlr->name, "DP-2")) {
 		printf("%ux%u\n", output_box.width, output_box.height);
 	}
-
+    
 	// Background
 	draw_rect.x  = 0;
 	draw_rect.y = 0;
@@ -749,7 +751,7 @@ static void render_status_bar(Output *output) {
 			draw_rect.height = output->bar_height;
 			wlr_render_rect(server.renderer, &draw_rect, CONFIG.bar_selection_color, matrix);
 		}
-
+        
 		if (!wl_list_empty(view->layers[LAYER_VIEW_FLOATING]) || !wl_list_empty(view->layers[LAYER_VIEW_TILES]) ||
 			!wl_list_empty(view->layers[LAYER_VIEW_FULLSCREEN])) {
 			draw_rect.x = x_offset - view_indicator_padding/2 + 1;
@@ -841,7 +843,7 @@ static void configure_client(Client *client, int32_t x, int32_t y, int32_t width
 #endif
 		default: break;
 	}
-
+    
 	client->config.x = x;
 	client->config.y = y;
 	client->config.width = width;
@@ -878,7 +880,7 @@ static void focus_client(Client *client) {
 		server.focused_client = NULL; 
 		return;
 	}
-		
+    
 	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(server.seat);
 	struct wlr_surface *client_surface = get_client_wlr_surface(client);
 	struct wlr_box output_box;
@@ -893,7 +895,7 @@ static void focus_client(Client *client) {
 		wlr_xwayland_surface_activate(client->xwayland_surface, true);
 	}
 #endif
-
+    
 	printf("Pointer enter at (%g, %g)\n", server.cursor->x - client->config.x - output_box.x, server.cursor->y - client->config.y - output_box.y);
 	wlr_seat_pointer_notify_enter(server.seat, client_surface, 
 								  server.cursor->x - client->config.x - output_box.x, 
@@ -912,7 +914,7 @@ static Client *get_client_under_cursor(Output *focused_output) {
 	
 	
 	Client *client = NULL;
-
+    
 	enum Layer search_order[] = {
 		LAYER_OUTPUT_OVERLAY,
 		LAYER_OUTPUT_TOP,
@@ -929,7 +931,7 @@ static Client *get_client_under_cursor(Output *focused_output) {
 		wl_list_for_each(output, &server.output_list, link) {
 			View *view = &output->views[output->current_view];
 			int min_layer = !wl_list_empty(view->layers[LAYER_VIEW_FULLSCREEN]) ? LAYER_VIEW_FULLSCREEN : 0;
-
+            
 			wlr_output_layout_get_box(server.output_layout, output->wlr, &output_box);
 			int layer = search_order[i];
 			if (layer < min_layer) break;
@@ -999,11 +1001,11 @@ static void handle_map_surface(struct wl_listener *listener, void *data) {
 		if (client->xdg_surface->role == WLR_XDG_SURFACE_ROLE_POPUP) {
 			return;
 		}
-	
+        
 		if (client->requesting_fullscreen) {
 			configure_client(client, 0, 0, output->wlr->width, output->wlr->height, CLIENT_CONFIG_FULLSCREEN);
 		}
-
+        
 		wlr_xdg_toplevel_set_activated(client->xdg_surface->toplevel, true);
 	}
 #if USE_XWAYLAND
@@ -1027,23 +1029,23 @@ static void handle_map_surface(struct wl_listener *listener, void *data) {
 #if 0
 			uint32_t netwm_mask = 0;
 			int is_popup = 0;
-
+            
 			for (int i = 0; i < surface->window_type_len; ++i) {
 				is_popup |= surface->window_type[i] == NET_WM_ATOMS[NET_WM_TYPE_MENU];
 				is_popup |= surface->window_type[i] == NET_WM_ATOMS[NET_WM_TYPE_DIALOG];
 				is_popup |= surface->window_type[i] == NET_WM_ATOMS[NET_WM_TYPE_SPLASH];
 				is_popup |= surface->window_type[i] == NET_WM_ATOMS[NET_WM_TYPE_TOOLBAR];
 				is_popup |= surface->window_type[i] == NET_WM_ATOMS[NET_WM_TYPE_UTILITY];
-
+                
 				netwm_mask |= (surface->window_type[i] == NET_WM_ATOMS[NET_WM_TYPE_MENU]) << NET_WM_TYPE_MENU;
 				netwm_mask |= (surface->window_type[i] == NET_WM_ATOMS[NET_WM_TYPE_DIALOG]) << NET_WM_TYPE_DIALOG;
 				netwm_mask |= (surface->window_type[i] == NET_WM_ATOMS[NET_WM_TYPE_SPLASH]) << NET_WM_TYPE_SPLASH;
 				netwm_mask |= (surface->window_type[i] == NET_WM_ATOMS[NET_WM_TYPE_TOOLBAR]) << NET_WM_TYPE_TOOLBAR;
 				netwm_mask |= (surface->window_type[i] == NET_WM_ATOMS[NET_WM_TYPE_UTILITY]) << NET_WM_TYPE_UTILITY;
 			}
-
+            
 			printf("%s NET_WM mask: 0x%x\n", get_client_title(client), netwm_mask);
-
+            
 			if (is_popup) {
 				client->config.x = surface->x;
 				client->config.y = surface->y;
@@ -1167,7 +1169,7 @@ static void process_cursor_move(uint32_t time_msec) {
 		output = wlr_output->data;
 		client = get_client_under_cursor(output);
 		if (!client) return;
-
+        
 		if (output != client->output) {
 			struct wlr_box old_output;
 			wlr_output_layout_get_box(server.output_layout, client->output->wlr, &old_output);
@@ -1182,7 +1184,7 @@ static void process_cursor_move(uint32_t time_msec) {
 			if (client->link.next) wl_list_remove(&client->link);
 			wl_list_insert(client->view->layers[client->layer], &client->link);
 		}
-
+        
 		configure_client(client, server.cursor->x - server.interact_grab_x - output_box.x,
 						 server.cursor->y - server.interact_grab_y - output_box.y,
 						 INT32_MAX, INT32_MAX, UINT32_MAX);
@@ -1200,13 +1202,13 @@ static void process_cursor_move(uint32_t time_msec) {
 static void set_cursor_mode(enum Cursor_Mode mode) {
 	Client *client = server.focused_client;
 	Output *output = server.focused_output;
-
+    
 	if (mode == server.cursor_mode) return;
-
+    
 	if (mode == CURSOR_MODE_NORMAL) {
 		server.cursor_mode = mode;
 		//if (!server.seat->pointer_state.focused_client)
-			wlr_xcursor_manager_set_cursor_image(server.xcursor_manager, "left_ptr", server.cursor);
+        wlr_xcursor_manager_set_cursor_image(server.xcursor_manager, "left_ptr", server.cursor);
 		return;
 	}
 	else if (!client || !can_interact_with_client(client)) return;
@@ -1276,7 +1278,7 @@ static void update_clients() {
 		bool client_is_visible = should_render_layer(client->view, client->layer);
 		
 		wlr_output_layout_get_box(server.output_layout, client->output->wlr, &output_box);
-
+        
 		client_is_visible &= !layer_is_view_layer(client->layer) || (client->view == OUTPUT_CURRENT_VIEW(client->output));
 		client_is_visible &= !(client->view->fullscreen_client && client->layer < LAYER_OUTPUT_STICKY);
 		
@@ -1363,7 +1365,7 @@ static void update_visibility() {
 static void output_manager_test_or_apply(struct wlr_output_configuration_v1 *config, int apply) {
 	struct wlr_output_head_v1 *head;
 	debug_printf("OUTPUT %s:\n", apply ? "APPLY" : "TEST");
-
+    
 	wl_list_for_each(head, &config->heads, link) {
 		struct wlr_output *output = head->state.output;
 		debug_printf("FOR %s\n", output->name);
@@ -1373,7 +1375,7 @@ static void output_manager_test_or_apply(struct wlr_output_configuration_v1 *con
 		} else {
 			debug_printf("SET CUSTOM MODE\n");
 			wlr_output_set_custom_mode(output, head->state.custom_mode.width, 
-					head->state.custom_mode.height, head->state.custom_mode.refresh);
+                                       head->state.custom_mode.height, head->state.custom_mode.refresh);
 		}
 		debug_printf("SET SCALE\n");
 		wlr_output_set_scale(output, head->state.scale);
@@ -1396,7 +1398,7 @@ static void output_manager_test_or_apply(struct wlr_output_configuration_v1 *con
 			debug_printf("COMMITTED\n");
 		}
 	}
-
+    
 	update_output_configuration();
 	wlr_output_configuration_v1_send_succeeded(config);
 }
@@ -1418,8 +1420,10 @@ static void handle_toplevel_request_fullscreen(struct wl_listener *listener, voi
 	struct wlr_xdg_toplevel *toplevel = client->xdg_surface->toplevel;
 	move_client_to_layer(client, toplevel->requested.fullscreen ? LAYER_VIEW_FULLSCREEN : LAYER_VIEW_FLOATING);
 	if (client->mapped)	{
-		configure_client(client, 0, 0, output->wlr->width, output->wlr->height, 
-					 	 CLIENT_CONFIG_FULLSCREEN * (client->xdg_surface->toplevel->requested.fullscreen == true));
+        int width, height;
+        wlr_output_effective_resolution(output->wlr, &width, &height);
+		configure_client(client, 0, 0, width, height, 
+                         CLIENT_CONFIG_FULLSCREEN * (client->xdg_surface->toplevel->requested.fullscreen == true));
 	}
 	else {
 		client->requesting_fullscreen = 1;
@@ -1461,10 +1465,10 @@ static void handle_new_layer_surface(struct wl_listener *listener, void *data) {
 		
 		if (layer_surface->output) output = layer_surface->output->data;
 		else output = server.focused_output;
-
+        
 		int effective_output_width, effective_output_height;
 		wlr_output_effective_resolution(output->wlr, &effective_output_width, &effective_output_height);
-
+        
 		// Anchored to top and bottom
 		if ((anchor & (1|2)) == (1|2)) {
 			height = effective_output_height;
@@ -1531,7 +1535,7 @@ static void handle_xwayland_request_configure(struct wl_listener *listener, void
 	Client *client = wl_container_of(listener, client, on_request_configure);
 	configure_client(client, event->x, event->y, event->width, event->height, UINT32_MAX);
 	printf("Configure XWayland surface %s (%p) with (%d, %d, %d, %d)\n", 
-			get_client_title(client), client, event->x, event->y, event->width, event->height);
+           get_client_title(client), client, event->x, event->y, event->width, event->height);
 }
 
 static void handle_xwayland_request_minimize(struct wl_listener *listener, void *data) {
@@ -1549,7 +1553,10 @@ static void handle_xwayland_request_fullscreen(struct wl_listener *listener, voi
 	printf("XWayland surface %s (%p) requesting fullscreen (fullscreen = %d)\n", get_client_title(client), client, surface->fullscreen);
 	if (!client->mapped) client->requesting_fullscreen = surface->fullscreen;
 	else {
-		configure_client(client, 0, 0, client->output->wlr->width, client->output->wlr->height, 
+        int width, height;
+        wlr_output_effective_resolution(client->output->wlr, &width, &height);
+        
+		configure_client(client, 0, 0, width, height, 
 						 client->config.flags ^ CLIENT_CONFIG_FULLSCREEN);
 		if (client->config.flags & CLIENT_CONFIG_FULLSCREEN) {
 			move_client_to_layer(client, LAYER_VIEW_FULLSCREEN);
@@ -1720,7 +1727,7 @@ static void handle_cursor_motion(struct wl_listener *listener, void *data) {
 			return;
 		}
 	}
-
+    
 	wlr_cursor_move(server.cursor, &event->pointer->base, event->delta_x, event->delta_y);
 	process_cursor_move(event->time_msec);
 }
@@ -1746,7 +1753,7 @@ static void handle_output_frame(struct wl_listener *listener, void *data) {
 	float clear_color[4] = {0, 0, 0, 1};
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
-
+    
 	{
 		int width, height;
 		wlr_output_attach_render(output->wlr, NULL);
@@ -1779,10 +1786,11 @@ static void handle_output_frame(struct wl_listener *listener, void *data) {
 			};
 			
 			if (texture) {
+                int width, height;
+                wlr_output_effective_resolution(output->wlr, &width, &height);
 				memcpy(matrix, output->wlr->transform_matrix, sizeof(matrix));
-				wlr_matrix_scale(matrix, output->wlr->width, output->wlr->height);
+				wlr_matrix_scale(matrix, width, height);
 				wlr_render_texture_with_matrix(server.renderer, texture, matrix, 1.f);
-				memcpy(matrix, output->wlr->transform_matrix, sizeof(matrix));
 				wlr_surface_for_each_surface(wlr_surface, &surface_render_iterator, &iterator);
 				wlr_surface_send_frame_done(wlr_surface, &now);
 				break; // Break from the loop after we render the top-most client
@@ -1891,7 +1899,7 @@ void update_output_configuration() {
 		head->state.x = output_box.x;
 		head->state.y = output_box.y;
 	}
-
+    
 	wlr_output_manager_v1_set_configuration(server.output_manager, output_config);
 }
 
@@ -1945,13 +1953,13 @@ static void handle_new_output(struct wl_listener *listener, void *data) {
 					printf("No modes for output %s\n", new_output->wlr->name);
 					break;
 				}
-
+                
 				found_config = true;
 				
 				struct wlr_output_mode *mode;
 				struct wlr_output_mode *closest_mode = NULL;
 				int closest_refresh_diff = INT32_MAX;
-
+                
 				printf("Using transform: %d\n", OUTPUTS[i].transform);
 				wlr_output_set_transform(new_output->wlr, OUTPUTS[i].transform);
 				
@@ -1972,7 +1980,7 @@ static void handle_new_output(struct wl_listener *listener, void *data) {
 					printf("Using mode %ux%u@%gHz for %s\n", width, height, closest_mode->refresh / 1000.f, new_output->wlr->name);
 					wlr_output_set_mode(new_output->wlr, closest_mode);
 				}
-
+                
 				break;
 			}
 		}
@@ -1981,7 +1989,7 @@ static void handle_new_output(struct wl_listener *listener, void *data) {
 		
 		wlr_output_commit(new_output->wlr);
 	}
-
+    
 	
 	wlr_output_layout_add_auto(server.output_layout, wlr_output);
 	listen(&new_output->on_destroy, &handle_output_destroy, &wlr_output->events.destroy);
@@ -1998,7 +2006,7 @@ int main(int argc, char **argv) {
 	wlr_log_init(WLR_ERROR, NULL);
 	wl_list_init(&server.output_list);
 	wl_list_init(&server.client_update_list);
-
+    
 	log_file = fopen("log.dump", "w");
 	
 	server.display = wl_display_create();
@@ -2093,7 +2101,7 @@ int main(int argc, char **argv) {
 	wl_display_destroy_clients(server.display);
 	wl_display_destroy(server.display);
 	fclose(log_file);
-
+    
 	return 0;
 }
 
