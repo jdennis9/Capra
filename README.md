@@ -10,7 +10,7 @@ Supported protocols:
 ## Building
 Requires FreeType, Wayland, X11, XWayland and wlroots.
 
-- Copy config.h.defaults to config.h
+- Copy config.defaults.h to config.h
 - Change config.h to suit your setup
 - run setup.sh
 - run build.sh
